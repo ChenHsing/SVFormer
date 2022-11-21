@@ -1,8 +1,8 @@
 python setup.py build develop
 
 python run_net_emamix.py \
-  --cfg configs/Kinetics/TimeSformer_small_ssl.yaml \
-  DATA.PATH_TO_DATA_DIR list_ucf_10/ \
+  --cfg configs/Kinetics/TimeSformer_base_ssl.yaml \
+  DATA.PATH_TO_DATA_DIR ./dataset/list_ucf_10/ \
   OUTPUT_DIR /mnt/blob/output/list_ucf_10/ucf_small_10_joint/ \
   NUM_GPUS 8 \
   TRAIN.BATCH_SIZE 8 \
