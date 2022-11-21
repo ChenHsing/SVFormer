@@ -9,5 +9,5 @@ python run_net_emamix.py \
   TEST.BATCH_SIZE 64 \
   TRAIN.ENABLE False
   TRAIN.FINETUNE False \
-  TRAIN.CHECKPOINT_FILE_PATH ./timesformer_10/checkpoints/checkpoint_epoch_00010.pyth
+  TRAIN.CHECKPOINT_FILE_PATH ./timesformer_10/checkpoints/checkpoint_epoch_00030.pyth
 
