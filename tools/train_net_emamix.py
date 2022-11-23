@@ -57,9 +57,6 @@ patch_size = (16, 16)
 window_size = (num_frames, input_size // patch_size[0], input_size // patch_size[1])
 
 
-
-
-
 def train_epoch(
     train_loader, model, optimizer, train_meter, cur_epoch, cfg, writer=None
 ):
@@ -210,8 +207,8 @@ def train_epoch(
 
 
 def getidx(num):
-    all = range(8)
-    lis = sorted(random.sample(range(8), num))
+    all = range(num_frames)
+    lis = sorted(random.sample(range(num_frames), num))
     ret = []
     for i in range(len(lis)):
         if i == 0:
@@ -233,6 +230,16 @@ def getidx(num):
                 ret.append(lis[i])
     return ret
 
+def temporal_aug(strong):
+    strong_temporal = strong
+    randint = np.random.randint(0, 3)
+    if randint == 0:
+        new = getidx(2)
+        strong_temporal[:, :, 0:num_frames, :, :] = strong[:, :, new, :, :]
+    elif randint == 1:
+        new = getidx(4)
+        strong_temporal[:, :, 0:num_frames, :, :] = strong[:, :, new, :, :]
+    return strong_temporal
 def ssl_train_epoch(
     train_loader, unlabel_loader, model, model_ema, optimizer, unlabel_meter, cur_epoch, cfg, writer=None
 ):
@@ -259,31 +266,20 @@ def ssl_train_epoch(
     num_iters = cfg.GLOBAL_BATCH_SIZE // cur_global_batch_size
 
     unlabel_iter = iter(unlabel_loader)
-    # label_iter = iter(train_loader)
-
     for cur_iter, (inputs, _, labels, _, meta) in enumerate(train_loader):
-
         try:
-            # inputs, _, labels, _, meta = label_iter.__next__()
-            weak, strong, real_label, _, _ = unlabel_iter.__next__()
+            weak, strong, _, _, _ = unlabel_iter.__next__()
         except:
-            # label_iter = iter(train_loader)
-            # inputs, _, labels, _, meta = label_iter.__next__()
             unlabel_iter = iter(unlabel_loader)
-            weak, strong, real_label, _, _ = unlabel_iter.__next__()
-
-
-        # Transfer the data to the current GPU device.
+            weak, strong, _, _, _ = unlabel_iter.__next__()
         if cfg.NUM_GPUS:
             if isinstance(weak,(list,)):
                 for i in range(len(weak)):
                     weak[i] = weak[i].cuda(non_blocking=True)
                     strong[i] = strong[i].cuda(non_blocking=True)
-                    real_label[i] = real_label[i].cuda(non_blocking=True)
             else:
                 weak = weak.cuda(non_blocking = True)
                 strong = strong.cuda(non_blocking=True)
-                real_label = real_label.cuda(non_blocking=True)
 
             if isinstance(inputs, (list,)):
                 for i in range(len(inputs)):
@@ -304,35 +300,19 @@ def ssl_train_epoch(
         optim.set_lr(optimizer, lr)
         unlabel_meter.data_toc()
         loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="mean")
-
         loss_unlabel = torch.nn.CrossEntropyLoss(reduction="none")
         loss_l2 = torch.nn.MSELoss(reduction="none")
-        # loss_unlabel = MyLabelSmoothingCrossEntropy(reduction="none")
-
 
         if cfg.DETECTION.ENABLE:
             preds = model(inputs, meta["boxes"])
         else:
             preds = model(inputs)
-
-
-        # temporal augmentation
-        strong_permute = strong
-        randint = np.random.randint(0,3)
-        if randint==0:
-            new = getidx(2)
-            strong_permute[:, :, 0:8, :, :] = strong[:, :, new, :, :]
-        elif randint== 1:
-            new = getidx(4)
-            strong_permute[:, :, 0:8, :, :] = strong[:, :, new, :, :]
-
+        strong_temporal = temporal_aug(strong)
         strong = F.dropout2d(strong, 0.2)
-        ## unlabel_training
         student = model(strong)
         idx = torch.randperm(strong.size(0))
-        strong_resort = strong_permute[idx,:]
+        strong_resort = strong_temporal[idx,:]
         strong = torch.cat([strong, strong_resort], dim=0)
-
         model.eval()
         with torch.no_grad():
             if model_ema:
@@ -340,43 +320,33 @@ def ssl_train_epoch(
             else:
                 teacher = model(weak).detach()
         model.train()
-
-        mask_ratio = np.random.beta(10,10)
+        mask_ratio = np.random.beta(cfg.TRAIN.BETA,cfg.TRAIN.BETA)
         tube = TubeMasking(input_size=window_size, mask_ratio=mask_ratio)
-        mask = tube.tubemask()
-        mask = mask[None].repeat(teacher.size(0), axis=0)
-        mask = torch.Tensor(mask)
-
-
+        tubemask = tube.tubemask()
+        tubemask = tubemask[None].repeat(teacher.size(0), axis=0)
+        tubemask = torch.Tensor(tubemask)
+        student_mix = model(strong,tubemask)
         pseudo = torch.zeros(teacher.size(0),teacher.size(-1)).cuda()
-        student_mix = model(strong,mask)
         pseudo_label = torch.softmax(teacher / 1, dim=-1)
         max_probs, targets_u = torch.max(pseudo_label, dim=-1)
-        mask = max_probs.ge(0.3).float()
-        
+        mask = max_probs.ge(cfg.TRAIN.DELTA).float()
         pseudo_label2 = pseudo_label[idx,:]
         max_probs2, _ = torch.max(pseudo_label2, dim=-1)
-        mask2 = max_probs2.ge(0.3).float()
-
+        mask2 = max_probs2.ge(cfg.TRAIN.DELTA).float()
         mask_mix = mask_ratio *mask + (1-mask_ratio)*mask2
-
         for i in range(teacher.size(0)):
             if mask[i] > 0:
                 pseudo[i][targets_u[i]] = 1
             else:
                 pseudo[i] = pseudo_label[i]
-
-
         y_1 = pseudo
         y_2 = pseudo[idx,:]
         y_label = mask_ratio * y_1 + (1-mask_ratio) * y_2
-
-        loss_un2 = (torch.mean(loss_l2(student_mix, y_label), dim=1)*mask_mix).mean() * 2
-        loss_un = (loss_unlabel(student, targets_u)*mask).mean() * 2
-
+        loss_mix = (torch.mean(loss_l2(student_mix, y_label), dim=1)*mask_mix).mean()
+        loss_un = (loss_unlabel(student, targets_u)*mask).mean()
         # Compute the loss.
         loss_label = loss_fun(preds, labels)
-        loss = loss_label + loss_un + loss_un2
+        loss = loss_label + loss_un* cfg.TRAIN.GAMMA1 + loss_mix* cfg.TRAIN.GAMMA2
 
         # check Nan Loss.
         misc.check_nan_losses(loss)
@@ -721,7 +691,6 @@ def train(cfg):
     # Create the video train and val loaders.
     train_loader = loader.construct_loader(cfg, "train")
     val_loader = loader.construct_loader(cfg, "val")
-    # label_loader = loader.construct_loader(cfg, "train")
     unlabel_loader = loader.construct_loader(cfg, "unlabel")
 
     precise_bn_loader = (
@@ -745,9 +714,8 @@ def train(cfg):
     # Perform the training loop.
     logger.info("Start epoch: {}".format(start_epoch + 1))
 
-
     #labeled training
-    for cur_epoch in range(start_epoch, 5):
+    for cur_epoch in range(start_epoch, cfg.TRAIN.WARM_EPOCH):
         if cfg.MULTIGRID.LONG_CYCLE:
             cfg, changed = multigrid.update_long_cycle(cfg, cur_epoch)
             if changed:
@@ -810,13 +778,9 @@ def train(cfg):
 
 
     #set ema_model
-    model_ema = ModelEma(model,decay=0.99)
-    # model_ema = None
-
-    # eval_epoch(val_loader, model, val_meter, cfg.SOLVER.MAX_EPOCH, cfg, writer)
-
+    model_ema = ModelEma(model,decay=cfg.TRAIN.EMA)
     #unlabeled training
-    for cur_epoch in range(5, cfg.SOLVER.MAX_EPOCH):
+    for cur_epoch in range(cfg.TRAIN.WARM_EPOCH, cfg.SOLVER.MAX_EPOCH):
         if cfg.MULTIGRID.LONG_CYCLE:
             cfg, changed = multigrid.update_long_cycle(cfg, cur_epoch)
             if changed:
@@ -849,7 +813,6 @@ def train(cfg):
         ssl_train_epoch(
             train_loader, unlabel_loader, model,model_ema, optimizer, unlabel_meter, cur_epoch, cfg, writer
         )
-
         if (cur_epoch+1) % 5 == 0:
             is_checkp_epoch = True
             is_eval_epoch = True

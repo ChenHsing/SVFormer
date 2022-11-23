@@ -93,42 +93,6 @@ class Attention(nn.Module):
            x = self.proj_drop(x)
         return x
 
-
-class CrossAttention(nn.Module):
-    def __init__(self, dim, num_heads=8, qk_scale=None, attn_drop=0., proj_drop=0., with_qkv=True):
-        super().__init__()
-        self.num_heads = num_heads
-        head_dim = dim // num_heads
-        self.scale = qk_scale or head_dim ** -0.5
-        self.with_qkv = with_qkv
-        if self.with_qkv:
-            self.projq = nn.Linear(dim, dim)
-            self.projk = nn.Linear(dim, dim)
-            self.projv = nn.Linear(dim, dim)
-            self.proj = nn.Linear(dim, dim)
-            self.proj_drop = nn.Dropout(proj_drop)
-        self.attn_drop = nn.Dropout(attn_drop)
-
-    def forward(self, x, key, value):
-        B, N, C = x.shape
-        if self.with_qkv:
-           q = self.projq(x)
-           k = self.projk(key)
-           v = self.projv(value)
-        else:
-           qkv = x.reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
-           q, k, v = qkv, qkv, qkv
-
-        attn = (q @ k.transpose(-2, -1)) * self.scale
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
-
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        if self.with_qkv:
-           x = self.proj(x)
-           x = self.proj_drop(x)
-        return x
-
 class Block(nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
@@ -265,10 +229,6 @@ class VisionTransformer(nn.Module):
                 drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer, attention_type=self.attention_type)
             for i in range(self.depth)])
         self.norm = norm_layer(embed_dim)
-
-        # Classifier head
-        # self.head = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
-
         trunc_normal_(self.pos_embed, std=.02)
         trunc_normal_(self.cls_token, std=.02)
         self.apply(self._init_weights)
@@ -304,26 +264,20 @@ class VisionTransformer(nn.Module):
         self.num_classes = num_classes
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
-    def forward_features(self, x, mask=None, noisy= None):
+    def forward_features(self, x, mask=None):
         B = x.shape[0]
-        if mask is not None and noisy is None:
+        if mask is not None:
             mask = mask[0:B//2]
             mask = mask.reshape(-1,mask.size(-1))
             mask1 = mask.bool().unsqueeze(-1)
             mask2 = ~mask1
-
             strong1 = x[0:B//2]
             strong2 = x[B//2:B]
             strong1,T,W = self.patch_embed(strong1)
             strong2,_,_ = self.patch_embed(strong2)
             B = (B//2)
-
             x1 = strong1 * mask1 + strong2 * mask2
-            # x = torch.cat([strong1, strong2, x1],dim=0)
             x = x1
-        elif mask is not None:
-            x, T, W = self.patch_embed(x)
-            x = gauss_noisy(x, mask)
         else:
             x, T, W = self.patch_embed(x)
 
