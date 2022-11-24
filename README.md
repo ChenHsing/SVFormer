@@ -1,12 +1,12 @@
 # SVFormer: Semi-supervised Video Transformer for Action Recognition
 
-This is the official implementation of the paper [SVFormer](https://arxiv.org/abs/2208.03550)
+This is the official implementation of the paper [SVFormer](https://arxiv.org/abs/2211.13222)
 
 ```
 @article{svformer,
   title={SVFormer: Semi-supervised Video Transformer for Action Recognition},
   author={Zhen Xing, Qi Dai, Han Hu, Jingjing Chen, Zuxuan Wu, Yu-Gang Jiang},
-  journal={arXiv preprint arXiv:},
+  journal={arXiv preprint arXiv:2211.13222},
   year={2022}
 }
 ```
