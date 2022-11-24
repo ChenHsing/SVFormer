@@ -48,7 +48,7 @@ We provide example as list_hmdb_40.
 bash train.sh
 ```
 
-## Main Results in paper -->
+## Main Results in paper 
 
 This is an original-implementation for open-source use.
 We are still re-running some models, and their scripts, checkpointss  will be released later.
