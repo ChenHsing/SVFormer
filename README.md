@@ -1,12 +1,12 @@
 # SVFormer: Semi-supervised Video Transformer for Action Recognition
 
-This is the implementation of the paper [SVFormer](https://arxiv.org/abs/2211.13222)
+This is the official implementation of the paper [SVFormer](https://arxiv.org/abs/2208.03550)
 
 ```
 @article{svformer,
   title={SVFormer: Semi-supervised Video Transformer for Action Recognition},
   author={Zhen Xing, Qi Dai, Han Hu, Jingjing Chen, Zuxuan Wu, Yu-Gang Jiang},
-  journal={arXiv preprint arXiv:2211.13222},
+  journal={arXiv preprint arXiv:},
   year={2022}
 }
 ```
@@ -48,43 +48,22 @@ We provide example as list_hmdb_40.
 bash train.sh
 ```
 
-<!-- ## Backbone Preparation
+## Main Results in paper -->
 
-CLIP weights need to be downloaded from [CLIP official repo](https://github.com/openai/CLIP/blob/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1/clip/clip.py#L30)
-and passed to the `--backbone_path` command line argument.
+This is an original-implementation for open-source use.
+We are still re-running some models, and their scripts, checkpointss  will be released later.
+In the following table we report the accuracy in original paper.
 
-## Script Usage
+| Backbone   | UCF101-1% | UCF101-10% | Kinetic400-1% | Kinetic400-10% | 
+| - | - |  - | - | - | 
+| SVFormer-S | 31.4 | 79.1 | 32.6 | 61.6
+| SVFormer-B | 46.3 | 86.7 | 49.1 | 69.4 
 
-Training and evaliation scripts are provided in the scripts folder.
-Scripts should be ready to run once the environment is setup and 
-`--backbone_path`, `--train_list_path` and `--val_list_path` are replaced with your own paths.
 
-For other command line arguments please see the help message for usage.
-
-## Kinetics-400 Main Results -->
-
-<!-- This is a re-implementation for open-source use.
-We are still re-running some models, and their scripts, weights and logs will be released later.
-In the following table we report the re-run accuracy, which may be slightly different from the original paper (typically +/-0.1%)
-
-| Backbone | Decoder Layers | #frames x stride | top-1 | top-5 | Script | Model | Log |
-| - | - | - | - | - | - | - | - |
-| ViT-B/16 | 4 | 8 x 16 | 82.8 | 95.8 | [script](scripts/train_k400_vitb16_8f_dec4x768.sh) | [google drive](https://drive.google.com/file/d/1DoGjvDdkJoSa9i-wq1lh6QoEZIa4xTB3/view?usp=sharing) | [google drive](https://drive.google.com/file/d/1-9vgsXMpnWBI9MxQV7SSQhkPfLomoYY3/view?usp=sharing) |
-| ViT-B/16 | 4 | 16 x 16 | 83.7 | 96.2 | [script](scripts/train_k400_vitb16_16f_dec4x768.sh) | [google drive](https://drive.google.com/file/d/1dax4qUIOEI_QzYXv31J-87cDkonQetVQ/view?usp=sharing) | [google drive](https://drive.google.com/file/d/1l2ivY28jUpwSmafQZvwtUo7tvm42i0PL/view?usp=sharing) |
-| ViT-B/16 | 4 | 32 x 8 | 84.3 | 96.6 | [script](scripts/train_k400_vitb16_32f_dec4x768.sh) | [google drive](https://drive.google.com/file/d/1fzFM5pD39Kfp8xRAJuWaXR9RALLmnoeU/view?usp=sharing) | [google drive](https://drive.google.com/file/d/1X1ZOdSCxXVeMpNhr_bviNKlRfJa5SMD7/view?usp=sharing) |
-| ViT-L/14 | 4 | 8 x 16 | 86.3 | 97.2 | [script](scripts/train_k400_vitl14_8f_dec4x1024.sh) | [google drive](https://drive.google.com/file/d/1AkdF4CkOVW2uiycCVqCxS397oYxNISAI/view?usp=sharing) | [google drive](https://drive.google.com/file/d/1OJFBmaE_tAwTzG-4i0CLQmhwGnN0psx1/view?usp=sharing) |
-| ViT-L/14 | 4 | 16 x 16 | 86.9 | 97.4 | [script](scripts/train_k400_vitl14_16f_dec4x1024.sh) | [google drive](https://drive.google.com/file/d/1CTV9geLD3HLWzByAQUOf_m0F_g2lE3rg/view?usp=sharing) | [google drive](https://drive.google.com/file/d/1a2iC4tQvjWFMI3UrEv2chuHwVrF6p9YF/view?usp=sharing) |
-| ViT-L/14 | 4 | 32 x 8 | 87.7 | 97.6 | [script](scripts/train_k400_vitl14_32f_dec4x1024.sh) | [google drive](https://drive.google.com/file/d/1zNFNCKwP5owakELlnTCD20cpVQBqgJrB/view?usp=sharing) | [google drive](https://drive.google.com/file/d/1dK7qoz3McYrmfS09FfreXC-LjUM7l0u4/view?usp=sharing) |
-| ViT-L/14 (336px) | 4 | 32 x 8 | 87.7 | 97.8 | | | | -->
-
-<!-- ## Data Loading Speed
-
-As the training process is fast, video frames are consumed at a very high rate.
-For easier installation, the current version uses PyTorch-builtin data loaders.
-They are not very efficient and can become a bottleneck when using ViT-B as backbones.
-We provide a `--dummy_dataset` option to bypass actual video decoding for training speed measurement. 
-The model accuracy should not be affected. 
-Our internal data loader is pure C++-based and does not bottleneck training by much on a machine with 2x Xeon Gold 6148 CPUs and 4x V100 GPUs. -->
+| Backbone   | HMDB51-40% | HMDB51-50% | HMDB51-60%|
+| - | - |  - | - | 
+| SVFormer-S | 56.2 | 58.2 | 59.7
+| SVFormer-B | 61.6 | 64.4 | 68.2
 
 
 ## Acknowledgements
