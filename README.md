@@ -51,7 +51,7 @@ bash train.sh
 ## Main Results in paper 
 
 This is an original-implementation for open-source use.
-We are still re-running some models, and their scripts, checkpointss  will be released later.
+We are still re-running some models, and their scripts, checkpoints  will be released later.
 In the following table we report the accuracy in original paper.
 
 | Backbone   | UCF101-1% | UCF101-10% | Kinetic400-1% | Kinetic400-10% | 
